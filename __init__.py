@@ -44,8 +44,9 @@ class GoogleAIPromptEnhancer:
     
     def __init__(self):
         """Initialize the node with default values.""" 
-        pass
-
+        # Store a seed that changes on each instance creation
+        self.instance_creation_time = time.time()
+    
     @classmethod
     def INPUT_TYPES(s):
         """
@@ -62,15 +63,16 @@ class GoogleAIPromptEnhancer:
                            "gemini-2.0-flash-exp", "gemini-2.0-flash"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
                 "clip": ("CLIP",),  # CLIP model for text encoding
                 "negative_text": ("STRING", {"multiline": True, "default": ""}),  # Negative prompt text
+                "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Add a seed override input
             }
         }
 
-    RETURN_TYPES = ("CONDITIONING", "CONDITIONING")  # Output types for positive and negative conditioning
-    RETURN_NAMES = ("positive", "negative")  # Name the outputs for clarity
+    RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "INT")  # Added INT return type for seed
+    RETURN_NAMES = ("positive", "negative", "seed")  # Added seed return name
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, model, clip, negative_text=""):
+    def enhance_prompt(self, text, api_key, model, clip, negative_text="", seed_override=0):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
         Also process negative prompt separately (without enhancement).
@@ -81,13 +83,35 @@ class GoogleAIPromptEnhancer:
             model (str): The Google Gemini model to use
             clip: CLIP model for encoding text
             negative_text (str): Negative prompt text (not enhanced through AI)
+            seed_override (int): Optional seed override for uniqueness
             
         Returns:
-            tuple: Tuple containing positive and negative CLIP conditioning data
+            tuple: Tuple containing positive and negative CLIP conditioning data and seed
         """
         # Validate API key is provided
         if not api_key or api_key == "YOUR_API_KEY_HERE":
             raise ValueError("Google Gemini API key is missing or invalid. Please provide your API key.")
+
+        # Generate a truly unique seed for this specific run
+        import random
+        import datetime
+        import uuid
+        import os
+
+        # Combine multiple sources of randomness
+        if seed_override > 0:
+            # Use user-provided seed if available
+            variation_seed = seed_override
+        else:
+            # Generate a completely unique seed combining multiple entropy sources
+            current_time = time.time() * 1000  # millisecond precision
+            pid = os.getpid()
+            random_component = random.randint(1, 1000000)
+            instance_component = int(self.instance_creation_time * 1000) % 1000000
+            unique_id = str(uuid.uuid4().int)[:8]  # Use part of a UUID for additional randomness
+            
+            # Combine all sources into a single integer
+            variation_seed = int(f"{int(current_time % 10000)}{pid % 100}{random_component % 10000}{instance_component % 1000}{int(unique_id) % 10000}") % 1000000000
 
         # Process positive prompt
         try:
@@ -98,15 +122,10 @@ class GoogleAIPromptEnhancer:
             # Add before API call:
             time.sleep(0.5)  # Brief pause to prevent rapid successive calls
 
-            # Add randomization to ensure uniqueness in each queued run
-            import random
-            import datetime
-            
-            # Generate unique identifiers that won't affect the meaning but will make each request unique
+            # Create timestamp for this specific call
             timestamp = datetime.datetime.now().isoformat()
-            variation_seed = random.randint(1, 1000000)
             
-            # Inject hidden uniqueness marker (will be stripped from final output)
+            # Insert the variation seed directly into the prompt to ensure uniqueness
             unique_text = f"{text} [UNIQUENESS_MARKER_{timestamp}_{variation_seed}]"
             
             # Create a prompt template instructing Gemini how to enhance the text
@@ -116,19 +135,36 @@ class GoogleAIPromptEnhancer:
 
             Original Prompt: {user_prompt}
 
-            Create a unique variation of an enhanced prompt that includes specific details, artistic style, and visual elements.
-            Each time this is called, you should generate a DIFFERENT interpretation or angle on the original prompt.
-            Add different styles, lighting, composition, or details to ensure variety.
-            Aim for around 50-100 words. Make it very descriptive.
+            IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time. 
+            Create a completely different interpretation with:
+            - Different artistic style than you would typically suggest
+            - Unique lighting conditions
+            - Alternative composition approach
+            - Varied details and elements
             
-            Important: This is part of a batch generation process, so make this interpretation noticeably different from other possible interpretations.
-            Only output the prompt text, no other details, no explanations or additional information or commentary.
+            This is variation #{seed} in a batch generation process.
+            
+            Aim for around 50-100 words. Make it very descriptive.
+            Only output the enhanced prompt text, no explanations or commentary.
             Ignore any UNIQUENESS_MARKER tags in the prompt.
             """
             
-            # Fill in the template with user's prompt and send to Gemini
-            full_prompt = prompt_template.format(user_prompt=unique_text) + f"\nVariation #{variation_seed}. Make this truly distinct."
-            response = model_instance.generate_content(full_prompt)
+            # Fill in the template with user's prompt and seed
+            full_prompt = prompt_template.format(user_prompt=unique_text, seed=variation_seed)
+            # Add extra uniqueness forcing parameters
+            full_prompt += f"\n\nUnique variation #{variation_seed} @ {timestamp}. Make this absolutely distinct from all other variations."
+            
+            # Create generation config with temperature to increase variation
+            generation_config = {
+                "temperature": 0.9,  # Increase randomness
+                "top_p": 0.95,       # Sample from more diverse options
+            }
+            
+            # Call the API with the generation config
+            response = model_instance.generate_content(
+                full_prompt,
+                generation_config=generation_config
+            )
 
             # Extract enhanced text from response or fallback to original
             if response.text:
@@ -160,10 +196,21 @@ class GoogleAIPromptEnhancer:
         neg_tokens = clip.tokenize(negative_text)
         neg_cond, neg_pooled = clip.encode_from_tokens(neg_tokens, return_pooled=True)
         
-        # Return both positive and negative conditioning
+        # Return both positive and negative conditioning, plus the seed used
         return ([[cond, {"pooled_output": pooled}]],
-                [[neg_cond, {"pooled_output": neg_pooled}]])
+                [[neg_cond, {"pooled_output": neg_pooled}]],
+                variation_seed)
         
+    # Add this property to tell ComfyUI to never cache the results of this node
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        """Tell ComfyUI this node always changes, preventing result caching.
+        
+        This forces ComfyUI to re-execute this node on each run, even in batched queue operations.
+        """
+        # Return current time to ensure the node is always considered "changed"
+        return time.time()
+
 # Register the node class for ComfyUI
 NODE_CLASS_MAPPINGS = {
     "GoogleAIPromptEnhancer": GoogleAIPromptEnhancer

@@ -45,6 +45,16 @@ app.registerExtension({
                     modelWidget.inputEl.style.borderRadius = "4px";
                 }
 
+                // Find and customize the seed override widget
+                const seedWidget = this.widgets.find((w) => w.name === "seed_override");
+                if (seedWidget) {
+                    seedWidget.inputEl.title = "Set to 0 for random unique prompts in each queue run, or set specific value for reproducible results";
+                    
+                    // Add a helpful tooltip via the label
+                    const originalLabel = seedWidget.label;
+                    seedWidget.label = "Seed (0 = random unique)";
+                }
+
                 // Find and customize the prompt text input widget
                 const textBoxWidget = this.widgets.find((w) => w.name === "text");
                 textBoxWidget.inputEl.placeholder = "Enter your prompt here";

@@ -1,0 +1,10 @@
+[project]
+name = "google-ai-prompt-enhancer"
+version = "0.1.0"  # Your project's version
+dependencies = [
+    "google-generativeai>=0.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -67,8 +67,8 @@ class GoogleAIPromptEnhancer:
             }
         }
 
-    RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "INT")  # Added INT return type for seed
-    RETURN_NAMES = ("positive", "negative", "seed")  # Added seed return name
+    RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "INT", "STRING")  # Added STRING return type
+    RETURN_NAMES = ("positive", "negative", "seed", "enhanced_prompt")  # Added enhanced_prompt return
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
@@ -86,7 +86,7 @@ class GoogleAIPromptEnhancer:
             seed_override (int): Optional seed override for uniqueness
             
         Returns:
-            tuple: Tuple containing positive and negative CLIP conditioning data and seed
+            tuple: Tuple containing positive and negative CLIP conditioning, seed, and enhanced prompt text
         """
         # Validate API key is provided
         if not api_key or api_key == "YOUR_API_KEY_HERE":
@@ -196,10 +196,11 @@ class GoogleAIPromptEnhancer:
         neg_tokens = clip.tokenize(negative_text)
         neg_cond, neg_pooled = clip.encode_from_tokens(neg_tokens, return_pooled=True)
         
-        # Return both positive and negative conditioning, plus the seed used
+        # Return both positive and negative conditioning, plus the seed used and enhanced text
         return ([[cond, {"pooled_output": pooled}]],
                 [[neg_cond, {"pooled_output": neg_pooled}]],
-                variation_seed)
+                variation_seed,
+                enhanced_prompt)
         
     # Add this property to tell ComfyUI to never cache the results of this node
     @classmethod
@@ -211,12 +212,16 @@ class GoogleAIPromptEnhancer:
         # Return current time to ensure the node is always considered "changed"
         return time.time()
 
+from .metadata_embedder import EnhancedPromptMetadataEmbedder
+
 # Register the node class for ComfyUI
 NODE_CLASS_MAPPINGS = {
-    "GoogleAIPromptEnhancer": GoogleAIPromptEnhancer
+    "GoogleAIPromptEnhancer": GoogleAIPromptEnhancer,
+    "EnhancedPromptMetadataEmbedder": EnhancedPromptMetadataEmbedder
 }
 
 # Define the display name for the node in ComfyUI interface
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "GoogleAIPromptEnhancer": "Google AI Prompt Enhancer"
+    "GoogleAIPromptEnhancer": "Google AI Prompt Enhancer",
+    "EnhancedPromptMetadataEmbedder": "Enhanced Prompt Metadata Embedder"
 }

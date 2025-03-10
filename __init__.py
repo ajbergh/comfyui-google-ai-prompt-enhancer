@@ -43,7 +43,7 @@ class GoogleAIPromptEnhancer:
     """
     
     def __init__(self):
-        """Initialize the node with default values."""
+        """Initialize the node with default values.""" 
         pass
 
     @classmethod
@@ -99,17 +99,28 @@ class GoogleAIPromptEnhancer:
             time.sleep(0.5)  # Brief pause to prevent rapid successive calls
 
             # Create a prompt template instructing Gemini how to enhance the text
+            # Updated to request unique variations
             prompt_template = """
             You are a prompt engineer for Stable Diffusion XL.  
             Your task is to enhance and elaborate the following prompt for optimal image generation:
 
             Original Prompt: {user_prompt}
 
-            Provide an enhanced prompt that includes specific details, artistic style, and visual elements to guide the image generation. Aim for around 50-100 words. Make it very descriptive.
+            Create a unique variation of an enhanced prompt that includes specific details, artistic style, and visual elements.
+            Each time this is called, you should generate a DIFFERENT interpretation or angle on the original prompt.
+            Add different styles, lighting, composition, or details to ensure variety.
+            Aim for around 50-100 words. Make it very descriptive.
+            
+            Important: This is part of a batch generation process, so make this interpretation noticeably different from other possible interpretations.
+            Only output the prompt text, no other details, no explainations or additional information or commentary.
             """
 
+            # Add a small random element to ensure uniqueness in API calls
+            import random
+            variation_seed = random.randint(1, 10000)
+            
             # Fill in the template with user's prompt and send to Gemini
-            full_prompt = prompt_template.format(user_prompt=text)
+            full_prompt = prompt_template.format(user_prompt=text) + f"\nUnique variation #{variation_seed}. Make this truly distinct."
             response = model_instance.generate_content(full_prompt)
 
             # Extract enhanced text from response or fallback to original
@@ -118,6 +129,7 @@ class GoogleAIPromptEnhancer:
                 # Print the original and enhanced prompts to the console
                 print("\n[Google AI Prompt Enhancer]")
                 print(f"Model: {model}")
+                print(f"Variation: #{variation_seed}")
                 print(f"Original prompt: {text}")
                 print(f"Enhanced prompt: {enhanced_prompt}\n")
             else:

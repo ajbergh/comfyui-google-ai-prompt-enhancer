@@ -7,6 +7,7 @@ A ComfyUI extension that uses Google's Gemini AI to enhance and elaborate text p
 - Connects to Google's Gemini AI to transform simple prompts into detailed image generation instructions
 - Seamlessly integrates with ComfyUI's workflow system
 - Auto-resizing text input field
+- Secure API key handling with masked display
 - Error handling with graceful fallbacks
 
 ## Installation
@@ -32,7 +33,7 @@ A ComfyUI extension that uses Google's Gemini AI to enhance and elaborate text p
 ## Usage
 
 1. Add the "Google AI Prompt Enhancer" node to your workflow
-2. Enter your Google Gemini API key
+2. Enter your Google Gemini API key (it will be masked after entry for security)
 3. Connect a CLIP model to the node
 4. Enter your basic prompt
 5. Connect the output to your image generation nodes

@@ -57,38 +57,43 @@ class GoogleAIPromptEnhancer:
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "default": "A beautiful landscape"}),  # User's input prompt
-                "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE"}),  # Google Gemini API key
+                "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key with password flag
+                "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.0-flash-thinking-exp-01-21", 
+                           "gemini-2.0-flash-exp", "gemini-2.0-flash"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
                 "clip": ("CLIP",),  # CLIP model for text encoding
+                "negative_text": ("STRING", {"multiline": True, "default": ""}),  # Negative prompt text
             }
         }
 
-    RETURN_TYPES = ("CONDITIONING",)  # Output type for ComfyUI workflow
+    RETURN_TYPES = ("CONDITIONING", "CONDITIONING")  # Output types for positive and negative conditioning
+    RETURN_NAMES = ("positive", "negative")  # Name the outputs for clarity
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, clip):
+    def enhance_prompt(self, text, api_key, model, clip, negative_text=""):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
+        Also process negative prompt separately (without enhancement).
         
         Args:
             text (str): The original prompt text to enhance
             api_key (str): Google Gemini API key
+            model (str): The Google Gemini model to use
             clip: CLIP model for encoding text
+            negative_text (str): Negative prompt text (not enhanced through AI)
             
         Returns:
-            tuple: CLIP conditioning data suitable for Stable Diffusion
-            
-        Raises:
-            ValueError: If API key is missing or invalid
+            tuple: Tuple containing positive and negative CLIP conditioning data
         """
         # Validate API key is provided
         if not api_key or api_key == "YOUR_API_KEY_HERE":
             raise ValueError("Google Gemini API key is missing or invalid. Please provide your API key.")
 
+        # Process positive prompt
         try:
             # Configure the Google Generative AI SDK with provided API key
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-pro-exp-02-05')  
+            model_instance = genai.GenerativeModel(model)  
 
             # Add before API call:
             time.sleep(0.5)  # Brief pause to prevent rapid successive calls
@@ -105,13 +110,14 @@ class GoogleAIPromptEnhancer:
 
             # Fill in the template with user's prompt and send to Gemini
             full_prompt = prompt_template.format(user_prompt=text)
-            response = model.generate_content(full_prompt)
+            response = model_instance.generate_content(full_prompt)
 
             # Extract enhanced text from response or fallback to original
             if response.text:
                 enhanced_prompt = response.text
                 # Print the original and enhanced prompts to the console
                 print("\n[Google AI Prompt Enhancer]")
+                print(f"Model: {model}")
                 print(f"Original prompt: {text}")
                 print(f"Enhanced prompt: {enhanced_prompt}\n")
             else:
@@ -130,8 +136,15 @@ class GoogleAIPromptEnhancer:
         # Convert the prompt text to CLIP conditioning format
         tokens = clip.tokenize(enhanced_prompt)  # Convert text to tokens
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)  # Encode tokens to embeddings
-        return ([[cond, {"pooled_output": pooled}]],)  # Return in ComfyUI conditioning format
-
+        
+        # Process negative prompt (directly, without enhancement)
+        neg_tokens = clip.tokenize(negative_text)
+        neg_cond, neg_pooled = clip.encode_from_tokens(neg_tokens, return_pooled=True)
+        
+        # Return both positive and negative conditioning
+        return ([[cond, {"pooled_output": pooled}]],
+                [[neg_cond, {"pooled_output": neg_pooled}]])
+        
 # Register the node class for ComfyUI
 NODE_CLASS_MAPPINGS = {
     "GoogleAIPromptEnhancer": GoogleAIPromptEnhancer

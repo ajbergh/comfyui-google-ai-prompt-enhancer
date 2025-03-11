@@ -61,7 +61,6 @@ class GoogleAIPromptEnhancer:
                 "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key with password flag
                 "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.0-flash-thinking-exp-01-21", 
                            "gemini-2.0-flash-exp", "gemini-2.0-flash"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
-                "enable_enhancement": (["True", "False"], {"default": "True"}),  # Toggle for enabling/disabling prompt enhancement
                 "clip": ("CLIP",),  # CLIP model for text encoding
                 "negative_text": ("STRING", {"multiline": True, "default": ""}),  # Negative prompt text
                 "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Add a seed override input
@@ -73,7 +72,7 @@ class GoogleAIPromptEnhancer:
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, model, enable_enhancement, clip, negative_text="", seed_override=0):
+    def enhance_prompt(self, text, api_key, model, clip, negative_text="", seed_override=0):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
         Also process negative prompt separately (without enhancement).
@@ -82,7 +81,6 @@ class GoogleAIPromptEnhancer:
             text (str): The original prompt text to enhance
             api_key (str): Google Gemini API key
             model (str): The Google Gemini model to use
-            enable_enhancement (str): "True" or "False" to enable/disable AI enhancement
             clip: CLIP model for encoding text
             negative_text (str): Negative prompt text (not enhanced through AI)
             seed_override (int): Optional seed override for uniqueness
@@ -90,6 +88,10 @@ class GoogleAIPromptEnhancer:
         Returns:
             tuple: Tuple containing positive and negative CLIP conditioning, seed, and enhanced prompt text
         """
+        # Validate API key is provided
+        if not api_key or api_key == "YOUR_API_KEY_HERE":
+            raise ValueError("Google Gemini API key is missing or invalid. Please provide your API key.")
+
         # Generate a truly unique seed for this specific run
         import random
         import datetime
@@ -111,121 +113,82 @@ class GoogleAIPromptEnhancer:
             # Combine all sources into a single integer
             variation_seed = int(f"{int(current_time % 10000)}{pid % 100}{random_component % 10000}{instance_component % 1000}{int(unique_id) % 10000}") % 1000000000
 
-        # Check if enhancement is disabled
-        if enable_enhancement == "False":
-            # Skip Gemini enhancement and use original prompt
-            enhanced_prompt = text
-            print("\n[Google AI Prompt Enhancer]")
-            print("Enhancement disabled. Using original prompt.")
-            print(f"Run ID: {variation_seed}")
-            print(f"Prompt: {enhanced_prompt}\n")
-        else:
-            # Validate API key is provided
-            if not api_key or api_key == "YOUR_API_KEY_HERE":
-                raise ValueError("Google Gemini API key is missing or invalid. Please provide your API key.")
+        # Process positive prompt
+        try:
+            # Configure the Google Generative AI SDK with provided API key
+            genai.configure(api_key=api_key)
+            model_instance = genai.GenerativeModel(model)  
 
-            # Process positive prompt
-            try:
-                # Configure the Google Generative AI SDK with provided API key
-                genai.configure(api_key=api_key)
-                model_instance = genai.GenerativeModel(model)  
+            # Add before API call:
+            time.sleep(0.5)  # Brief pause to prevent rapid successive calls
 
-                # Add before API call:
-                time.sleep(0.5)  # Brief pause to prevent rapid successive calls
+            # Create timestamp for this specific call
+            timestamp = datetime.datetime.now().isoformat()
+            
+            # Insert the variation seed directly into the prompt to ensure uniqueness
+            unique_text = f"{text} [UNIQUENESS_MARKER_{timestamp}_{variation_seed}]"
+            
+            # Create a prompt template instructing Gemini how to enhance the text
+            prompt_template = """
+            You are a prompt engineer for Stable Diffusion XL.  
+            Your task is to enhance and elaborate the following prompt for optimal image generation:
 
-                # Create timestamp for this specific call
-                timestamp = datetime.datetime.now().isoformat()
-                
-                # Insert the variation seed directly into the prompt to ensure uniqueness
-                unique_text = f"{text} [UNIQUENESS_MARKER_{timestamp}_{variation_seed}]"
-                
-                # Create a prompt template instructing Gemini how to enhance the text
-                prompt_template = """
-                You are a prompt engineer for Stable Diffusion XL.  
-                Your task is to enhance and elaborate the following prompt for optimal image generation:
+            Original Prompt: {user_prompt}
 
-                Original Prompt: {user_prompt}
+            IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time. 
+            IMPORTANT: Try to understand the essence of the prompt and expand upon it creatively. For example, if the base prompt is "an instagram selfie", do not return a painting style or a cartoon version. Instead, enhance the prompt with a unique setting, mood, or additional elements that would make it stand out.
+            Create a completely different interpretation with:
+            - Different artistic style than you would typically suggest, only if no style if given in the base prompt
+            - Unique lighting conditions
+            - Alternative composition approach
+            - Varied details and elements
+            - Included technical details like the type of camera or lens used
+            
+            This is variation #{seed} in a batch generation process.
+            
+            Aim for around 50-100 words. Make it very descriptive.
+            Only output the enhanced prompt text, no explanations or commentary.
+            Ignore any UNIQUENESS_MARKER tags in the prompt.
+            """
+            
+            # Fill in the template with user's prompt and seed
+            full_prompt = prompt_template.format(user_prompt=unique_text, seed=variation_seed)
+            # Add extra uniqueness forcing parameters
+            full_prompt += f"\n\nUnique variation #{variation_seed} @ {timestamp}. Make this absolutely distinct from all other variations."
+            
+            # Create generation config with temperature to increase variation
+            generation_config = {
+                "temperature": 0.9,  # Increase randomness
+                "top_p": 0.95,       # Sample from more diverse options
+            }
+            
+            # Call the API with the generation config
+            response = model_instance.generate_content(
+                full_prompt,
+                generation_config=generation_config
+            )
 
-                IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time. 
-                IMPORTANT: Try to understand the essence of the prompt and expand upon it creatively. For example, if the base prompt is "an instagram selfie", do not return a painting style or a cartoon version. Instead, enhance the prompt with a unique setting, mood, or additional elements that would make it stand out.
-                Create a completely different interpretation with:
-                - Different artistic style than you would typically suggest, only if no style if given in the base prompt
-                - Unique lighting conditions
-                - Alternative composition approach
-                - Varied details and elements
-                - Included technical details like the type of camera or lens used
-                
-                This is variation #{seed} in a batch generation process.
-                
-                Aim for around 50-100 words. Make it very descriptive.
-                Only output the enhanced prompt text, no explanations or commentary.
-                Ignore any UNIQUENESS_MARKER tags in the prompt.
-                """
-                
-                # Fill in the template with user's prompt and seed
-                full_prompt = prompt_template.format(user_prompt=unique_text, seed=variation_seed)
-                # Add extra uniqueness forcing parameters
-                full_prompt += f"\n\nUnique variation #{variation_seed} @ {timestamp}. Make this absolutely distinct from all other variations."
-                
-                # Create generation config with temperature to increase variation
-                generation_config = {
-                    "temperature": 0.9,  # Increase randomness
-                    "top_p": 0.95,       # Sample from more diverse options
-                    "timeout": 15,       # Set a timeout of 15 seconds to prevent hanging
-                }
-                
-                # Implement retry logic for API calls
-                max_retries = 2
-                retry_delay = 1.5
-                
-                for attempt in range(max_retries + 1):
-                    try:
-                        # Call the API with the generation config
-                        response = model_instance.generate_content(
-                            full_prompt,
-                            generation_config=generation_config
-                        )
-                        break  # Break out of retry loop if successful
-                    except Exception as retry_error:
-                        if "rate limit" in str(retry_error).lower() or "quota" in str(retry_error).lower():
-                            print(f"Rate limit encountered. Attempt {attempt + 1}/{max_retries + 1}")
-                            if attempt < max_retries:
-                                print(f"Waiting {retry_delay}s before retry...")
-                                time.sleep(retry_delay)
-                                retry_delay *= 2  # Exponential backoff
-                            else:
-                                raise  # Re-raise if all retries failed
-                        else:
-                            raise  # Re-raise if it's not a rate limit issue
-
-                # Extract enhanced text from response or fallback to original
-                if response.text:
-                    enhanced_prompt = response.text.replace(f"[UNIQUENESS_MARKER_{timestamp}_{variation_seed}]", "").strip()
-                    # Print the original and enhanced prompts to the console
-                    print("\n[Google AI Prompt Enhancer]")
-                    print(f"Model: {model}")
-                    print(f"Run ID: {variation_seed}")
-                    print(f"Original prompt: {text}")
-                    print(f"Enhanced prompt: {enhanced_prompt}\n")
-                else:
-                    enhanced_prompt = text  # Fallback to the original prompt if no enhancement
-                    print("Warning: Gemini did not return an enhanced prompt. Using the original prompt.")
-            except Exception as e:
-                # More specific error message categorization
-                if "API key" in str(e).lower():
-                    print(f"Error: Invalid Google Gemini API key. Please check your key. Details: {e}")
-                elif "quota" in str(e).lower() or "rate" in str(e).lower():
-                    print(f"Error: API quota or rate limit exceeded. Details: {e}")
-                    print("Suggestion: Wait a while before trying again or reduce request frequency.")
-                elif "timeout" in str(e).lower():
-                    print(f"Error: API request timed out. The server might be busy. Details: {e}")
-                    print("Suggestion: Try again later or check your network connection.")
-                elif "connectivity" in str(e).lower() or "network" in str(e).lower():
-                    print(f"Error: Network connectivity issue. Details: {e}")
-                    print("Suggestion: Check your internet connection.")
-                else:
-                    print(f"Error during Gemini API call: {e}")
-                enhanced_prompt = text  # Fallback to original prompt on error
+            # Extract enhanced text from response or fallback to original
+            if response.text:
+                enhanced_prompt = response.text.replace(f"[UNIQUENESS_MARKER_{timestamp}_{variation_seed}]", "").strip()
+                # Print the original and enhanced prompts to the console
+                print("\n[Google AI Prompt Enhancer]")
+                print(f"Model: {model}")
+                print(f"Run ID: {variation_seed}")
+                print(f"Original prompt: {text}")
+                print(f"Enhanced prompt: {enhanced_prompt}\n")
+            else:
+                enhanced_prompt = text  # Fallback to the original prompt if no enhancement
+                print("Warning: Gemini did not return an enhanced prompt. Using the original prompt.")
+        except Exception as e:
+            # More specific error message categorization
+            if "API key" in str(e).lower():
+                print(f"Error: Invalid Google Gemini API key. Please check your key. Details: {e}")
+            elif "quota" in str(e).lower():
+                print(f"Error: API quota exceeded. Details: {e}")
+            else:
+                print(f"Error during Gemini API call: {e}")
+            enhanced_prompt = text  # Fallback to original prompt on error
 
         # Convert the prompt text to CLIP conditioning format
         tokens = clip.tokenize(enhanced_prompt)  # Convert text to tokens

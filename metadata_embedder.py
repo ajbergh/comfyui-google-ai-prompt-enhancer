@@ -2,52 +2,34 @@ import json
 
 class EnhancedPromptMetadataEmbedder:
     """
-    A node that adds the enhanced prompt to image metadata
+    A node that embeds prompt metadata into images
     """
     
     @classmethod
     def INPUT_TYPES(s):
         return {
             "required": {
-                "images": ("IMAGE", ),
-                "enhanced_prompt": ("STRING", {"multiline": True}),
-                "original_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "images": ("IMAGE",),
                 "metadata": ("STRING", {"multiline": True, "default": "{}"})
             }
         }
         
-    RETURN_TYPES = ("IMAGE", "STRING")
-    RETURN_NAMES = ("images", "metadata")
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("images",)
     FUNCTION = "embed_metadata"
     CATEGORY = "image/process"
     
-    def embed_metadata(self, images, enhanced_prompt, original_prompt="", negative_prompt="", metadata="{}"):
+    def embed_metadata(self, images, metadata="{}"):
         """
-        Embeds the enhanced prompt into the image metadata
+        Embeds the provided metadata into the images
         """
-        # Parse the existing metadata if any
+        # Parse the metadata
         try:
             metadata_dict = json.loads(metadata)
         except:
+            print("Warning: Invalid metadata JSON. Using empty metadata.")
             metadata_dict = {}
         
-        # Add our enhanced prompt information
-        metadata_dict["prompt"] = {
-            "enhanced": enhanced_prompt,
-            "original": original_prompt,
-            "negative": negative_prompt
-        }
-        
-        # Add Google AI Prompt Enhancer information
-        if "google_ai_prompt_enhancer" not in metadata_dict:
-            metadata_dict["google_ai_prompt_enhancer"] = {}
-        
-        metadata_dict["google_ai_prompt_enhancer"]["version"] = "1.0"
-        
-        # Convert back to JSON
-        final_metadata = json.dumps(metadata_dict, indent=2)
-        
-        # Return the images with the enhanced metadata
         # The actual metadata embedding happens in the SaveImage node in ComfyUI
-        return (images, final_metadata)
+        # Here we're just passing the images through with their metadata attached
+        return (images,)

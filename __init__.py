@@ -136,11 +136,13 @@ class GoogleAIPromptEnhancer:
             Original Prompt: {user_prompt}
 
             IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time. 
+            IMPORTANT: Try to understand the essence of the prompt and expand upon it creatively. For example, if the base prompt is "an instagram selfie", do not return a painting style or a cartoon version. Instead, enhance the prompt with a unique setting, mood, or additional elements that would make it stand out.
             Create a completely different interpretation with:
-            - Different artistic style than you would typically suggest
+            - Different artistic style than you would typically suggest, only if no style if given in the base prompt
             - Unique lighting conditions
             - Alternative composition approach
             - Varied details and elements
+            - Included technical details like the type of camera or lens used
             
             This is variation #{seed} in a batch generation process.
             

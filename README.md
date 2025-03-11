@@ -9,6 +9,7 @@ A ComfyUI extension that uses Google's Gemini AI to enhance and elaborate text p
 - Auto-resizing text input field
 - Secure API key handling with masked display
 - Error handling with graceful fallbacks
+- Metadata embedding for enhanced prompts
 
 ## Installation
 
@@ -32,11 +33,32 @@ A ComfyUI extension that uses Google's Gemini AI to enhance and elaborate text p
 
 ## Usage
 
+### Google AI Prompt Enhancer Node
+
 1. Add the "Google AI Prompt Enhancer" node to your workflow
 2. Enter your Google Gemini API key (it will be masked after entry for security)
 3. Connect a CLIP model to the node
 4. Enter your basic prompt
 5. Connect the output to your image generation nodes
+
+### Enhanced Prompt Metadata Embedder Node
+
+The Enhanced Prompt Metadata Embedder allows you to store your original and enhanced prompts directly in the image metadata:
+
+1. Add the "Enhanced Prompt Metadata Embedder" node to your workflow
+2. Connect your images to the node
+3. Connect your enhanced prompt from the Google AI Prompt Enhancer
+4. Optionally provide the original and negative prompts
+5. Connect the output to a SaveImage node to save the images with embedded metadata
+
+## Workflow Example
+
+A basic workflow might look like:
+1. CLIP Text Encoder → Google AI Prompt Enhancer
+2. KSampler (with Google AI Prompt Enhancer connected)
+3. VAE Decoder (from KSampler)
+4. Enhanced Prompt Metadata Embedder (with VAE output and prompt data)
+5. SaveImage
 
 ## Requirements
 

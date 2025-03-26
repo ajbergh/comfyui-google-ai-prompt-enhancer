@@ -32,6 +32,31 @@ app.registerExtension({
                 // Find and customize the API key input widget
                 const apiWidget = this.widgets.find((w) => w.name === "api_key");
                 apiWidget.inputEl.placeholder = "Enter your Google Gemini API Key Here";
+                
+                // Explicitly set the input type to password to ensure it's obscured
+                apiWidget.inputEl.type = "password";
+
+                // Create a toggle button for showing/hiding the password
+                const toggleBtn = document.createElement("button");
+                toggleBtn.textContent = "👁️";
+                toggleBtn.style.marginLeft = "5px";
+                toggleBtn.style.padding = "2px 5px";
+                toggleBtn.style.cursor = "pointer";
+                toggleBtn.title = "Show/Hide API Key";
+                toggleBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (apiWidget.inputEl.type === "password") {
+                        apiWidget.inputEl.type = "text";
+                        toggleBtn.textContent = "🔒";
+                    } else {
+                        apiWidget.inputEl.type = "password";
+                        toggleBtn.textContent = "👁️";
+                    }
+                };
+
+                // Insert the toggle button after the input element
+                apiWidget.inputEl.parentNode.insertBefore(toggleBtn, apiWidget.inputEl.nextSibling);
 
                 // Find and customize the model dropdown widget
                 const modelWidget = this.widgets.find((w) => w.name === "model");

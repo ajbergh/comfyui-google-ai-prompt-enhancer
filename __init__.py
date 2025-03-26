@@ -59,8 +59,8 @@ class GoogleAIPromptEnhancer:
             "required": {
                 "text": ("STRING", {"multiline": True, "default": "A beautiful landscape"}),  # User's input prompt
                 "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key with password flag
-                "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.0-flash-thinking-exp-01-21", 
-                           "gemini-2.0-flash-exp", "gemini-2.0-flash"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
+                "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.5-pro-exp-03-25","gemini-2.0-flash-thinking-exp-01-21", 
+                           "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.0-flash-exp-image-generation"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
                 "clip": ("CLIP",),  # CLIP model for text encoding
                 "negative_text": ("STRING", {"multiline": True, "default": ""}),  # Negative prompt text
                 "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Add a seed override input

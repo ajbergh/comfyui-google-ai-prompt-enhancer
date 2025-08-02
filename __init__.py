@@ -63,15 +63,18 @@ class GoogleAIPromptEnhancer:
         Returns:
             dict: Dictionary specifying required and optional inputs with their types and defaults
         """
+        # Define the default negative prompt for SDXL, which is the default model_type
+        sdxl_negative_prompt = "low detail, distorted anatomy, unrealistic proportions, washed out colors, overexposed, watermark, text, bad hands, extra limbs, blurry background, chromatic aberration"
+
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "default": "A beautiful landscape"}),  # User's input prompt
                 "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key
-                "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.5-pro-exp-03-25", "gemini-2.0-flash-thinking-exp-01-21", 
+                "model": (["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-preview-image-generation", 
                            "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.0-flash-exp-image-generation"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
                 "model_type": (["SD1.5", "SDXL", "Flux", "Flux Kontext", "WAN 2.2"], {"default": "SDXL"}),  # Model dropdown
                 "clip": ("CLIP",),  # CLIP model for text encoding
-                "negative_text": ("STRING", {"multiline": True, "default": "", "description": "Pre-populated based on model type"}),  # Negative prompt text
+                "negative_text": ("STRING", {"multiline": True, "default": sdxl_negative_prompt, "description": "Pre-populated based on model type"}),  # Negative prompt text
                 "creativity": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05}), # Creativity (temperature)
                 "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Seed override
             },

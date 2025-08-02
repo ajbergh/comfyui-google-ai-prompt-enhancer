@@ -93,11 +93,14 @@ app.registerExtension({
                     modelTypeWidget.callback = (v) => {
                         // If the negative prompt is empty or matches one of our presets, update it.
                         const currentNegative = negativeTextWidget.value.trim();
-                        const isCurrentNegativeAPreset = Object.values(modelNegativePresets).includes(currentNegative);
+                        const isAPreset = Object.values(modelNegativePresets).includes(currentNegative);
 
-                        if (!currentNegative || isCurrentNegativeAPreset) {
+                        if (!currentNegative || isAPreset) {
                             negativeTextWidget.value = modelNegativePresets[v] || "";
+                            // Manually trigger the input event for the text area to update its size
+                            negativeTextWidget.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                         }
+                        
                         if (originalCallback) {
                             return originalCallback.apply(this, arguments);
                         }
@@ -129,21 +132,19 @@ app.registerExtension({
 
                 // Implement auto-resizing functionality for both text boxes
                 const setupAutoResize = (widget) => {
-                    const onInput = widget.callback;
-                    widget.callback = function () {
-                        // Call the original callback first
-                        onInput?.apply(this, arguments);
-                        
+                    const onInput = () => {
                         // Auto-resize logic - temporarily set height to 0 to calculate proper scrollHeight
-                        this.inputEl.style.height = 0;
-                        this.inputEl.style.height = `${this.inputEl.scrollHeight}px`;
+                        widget.inputEl.style.height = 'auto';
+                        widget.inputEl.style.height = `${widget.inputEl.scrollHeight}px`;
                         
                         // Tell ComfyUI to redraw the canvas with updated node dimensions
                         app.graph.setDirtyCanvas(true);
-                    }
+                    };
                     
-                    // Trigger the callback once to initialize the sizing
-                    widget.callback();
+                    widget.inputEl.addEventListener('input', onInput);
+                    
+                    // Trigger the resize once to initialize the sizing
+                    setTimeout(() => onInput(), 0);
                 };
                 
                 setupAutoResize(textBoxWidget);

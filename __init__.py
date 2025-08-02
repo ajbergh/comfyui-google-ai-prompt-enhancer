@@ -37,6 +37,7 @@ import random
 import datetime
 import uuid
 import os
+import json
 
 class GoogleAIPromptEnhancer:
     """
@@ -79,15 +80,19 @@ class GoogleAIPromptEnhancer:
             },
             "optional": {
                 "keep_concise": ("BOOLEAN", {"default": False}), # Add conciseness checkbox
-            }
+            },
+            "hidden": {
+                "prompt": "PROMPT", 
+                "extra_pnginfo": "EXTRA_PNGINFO"
+            },
         }
 
-    RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "INT", "STRING")  # Added STRING return type
-    RETURN_NAMES = ("positive", "negative", "seed", "enhanced_prompt")  # Added enhanced_prompt return
+    RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "INT", "STRING", "EXTRA_PNGINFO")  # Added EXTRA_PNGINFO return type
+    RETURN_NAMES = ("positive", "negative", "seed", "enhanced_prompt", "extra_pnginfo")  # Added extra_pnginfo return
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, model, model_type, clip, creativity, negative_text="", seed_override=0, keep_concise=False):
+    def enhance_prompt(self, text, api_key, model, model_type, clip, creativity, negative_text="", seed_override=0, keep_concise=False, prompt=None, extra_pnginfo=None):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
         Also process negative prompt separately (without enhancement).
@@ -102,9 +107,11 @@ class GoogleAIPromptEnhancer:
             negative_text (str): Negative prompt text (not enhanced through AI)
             seed_override (int): Optional seed override for uniqueness
             keep_concise (bool): Whether to keep the enhanced prompt concise
+            prompt (dict, optional): The workflow data from ComfyUI.
+            extra_pnginfo (dict, optional): The extra metadata from ComfyUI.
             
         Returns:
-            tuple: Tuple containing positive and negative CLIP conditioning, seed, and enhanced prompt text
+            tuple: Tuple containing positive and negative CLIP conditioning, seed, enhanced prompt text, and extra_pnginfo
         """
         # Model-specific default negative prompts
         model_negative_presets = {
@@ -258,6 +265,18 @@ class GoogleAIPromptEnhancer:
                 print(f"Error during Gemini API call: {e}")
             enhanced_prompt = text  # Fallback to original prompt on error
 
+        # Prepare metadata for embedding
+        if prompt is not None and extra_pnginfo is not None:
+            # Find the KSampler node to inject our enhanced prompt into the workflow data
+            for node_data in prompt.values():
+                if node_data.get("class_type") in ["KSampler", "KSamplerAdvanced", "UltimateSDUpscale"]:
+                    if "positive" in node_data["inputs"]:
+                        # This is a heuristic, but it should cover the most common samplers
+                        node_data["inputs"]["positive"] = enhanced_prompt
+            
+            # Add the modified workflow to the pnginfo
+            extra_pnginfo["workflow"] = json.dumps(prompt, indent=2)
+
         # Convert the prompt text to CLIP conditioning format
         tokens = clip.tokenize(enhanced_prompt)  # Convert text to tokens
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)  # Encode tokens to embeddings
@@ -270,7 +289,8 @@ class GoogleAIPromptEnhancer:
         return ([[cond, {"pooled_output": pooled}]],
                 [[neg_cond, {"pooled_output": neg_pooled}]],
                 variation_seed,
-                enhanced_prompt)
+                enhanced_prompt,
+                extra_pnginfo)
         
     # Add this property to tell ComfyUI to never cache the results of this node
     @classmethod
@@ -282,16 +302,12 @@ class GoogleAIPromptEnhancer:
         # Return current time to ensure the node is always considered "changed"
         return time.time()
 
-from .metadata_embedder import EnhancedPromptMetadataEmbedder
-
 # Register the node class for ComfyUI
 NODE_CLASS_MAPPINGS = {
-    "GoogleAIPromptEnhancer": GoogleAIPromptEnhancer,
-    "EnhancedPromptMetadataEmbedder": EnhancedPromptMetadataEmbedder
+    "GoogleAIPromptEnhancer": GoogleAIPromptEnhancer
 }
 
 # Define the display name for the node in ComfyUI interface
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "GoogleAIPromptEnhancer": "Google AI Prompt Enhancer",
-    "EnhancedPromptMetadataEmbedder": "Enhanced Prompt Metadata Embedder"
+    "GoogleAIPromptEnhancer": "Google AI Prompt Enhancer"
 }

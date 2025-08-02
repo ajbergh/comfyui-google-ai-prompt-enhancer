@@ -136,32 +136,66 @@ class GoogleAIPromptEnhancer:
             
             # Add model_type-specific instructions
             model_type_instructions = {
-                "SD1.5": "You are enhancing prompts for Stable Diffusion 1.5. Focus on concise, clear descriptions and avoid overly complex compositions.",
-                "SDXL": "You are enhancing prompts for Stable Diffusion XL. Use rich, detailed descriptions and modern artistic styles.",
-                "Flux": "You are enhancing prompts for the Flux model. Emphasize abstract, experimental, and generative art concepts.",
-                "Flux Kontext": "You are enhancing prompts for Flux Kontext. Focus on context-aware, narrative-driven, and conceptual prompts.",
-                "WAN 2.2": "You are enhancing prompts for WAN 2.2. Prioritize photorealism, technical camera details, and lifelike scenes."
-            }
-            model_type_prompt = model_type_instructions.get(model_type, "")
+                "SD1.5": """You are a prompt engineer for Stable Diffusion 1.5. 
+                - Use a tag-based, keyword-heavy structure with comma-separated descriptors. 
+                - Apply weighting syntax `(keyword:1.2)` where emphasis is needed.
+                - Include 'magic words' like (masterpiece, best quality, ultra detailed) for higher quality.
+                - Keep sentences short, focusing on strong descriptive tags.""",
 
+                "SDXL": """You are a prompt engineer for Stable Diffusion XL. 
+                - Use natural, flowing sentences with cinematic and photographic language.
+                - Avoid overusing weighting syntax.
+                - Focus on scene composition, realistic textures, and lighting.
+                - Treat the prompt as an art direction or photography brief.""",
+
+                "Flux": """You are a prompt engineer for the Flux model. 
+                - Write prompts with narrative flow, multi-subject clarity, and contextual relationships.
+                - Organize descriptions logically: environment → subject → details → mood.
+                - Optionally use explicit 'Style:' and 'Mood:' sections to clarify tone.""",
+
+                "Flux Kontext": """You are a prompt engineer for Flux Kontext. 
+                - Focus on context-aware, narrative-driven, and conceptual prompts.
+                - Expand descriptions into cinematic or storytelling language.
+                - Use 'Style:' and 'Mood:' sections when appropriate for clarity.""",
+
+                "WAN 2.2": """You are a prompt engineer for WAN 2.2. 
+                - Use structured keyword chains with explicit style tokens (anime, digital art, etc.).
+                - Keep prompts concise but rich in descriptors.
+                - Optional light weighting `(keyword:1.2)` is acceptable.
+                - Include style tokens when appropriate."""
+            }
+            # Model-specific default negative prompts
+            model_negative_presets = {
+                "SD1.5": "blurry, lowres, bad anatomy, extra limbs, poorly drawn hands, fused fingers, mutated hands, deformed face, long neck, watermark, text, logo, grainy, jpeg artifacts",
+                "SDXL": "low detail, distorted anatomy, unrealistic proportions, washed out colors, overexposed, watermark, text, bad hands, extra limbs, blurry background, chromatic aberration",
+                "Flux": "chaotic composition, oversaturated colors, unnatural lighting, distorted proportions, messy textures, artifacts, watermark, text, cluttered scene, inconsistent perspective",
+                "Flux Kontext": "chaotic composition, unnatural proportions, distorted lighting, artifacts, text, watermark, visual clutter, inconsistent perspective",
+                "WAN 2.2": "lowres, bad anatomy, extra arms, extra legs, fused limbs, poorly drawn hands, incorrect eyes, distorted face, messy background, watermark, text, blurry, pixelated"
+            }
+
+            model_type_prompt = model_type_instructions.get(model_type, "")
+            model_negative_prompt = model_negative_presets.get(model_type, "")
+            
             # Create a prompt template instructing Gemini how to enhance the text
             prompt_template = f"""
             {model_type_prompt}
 
-            You are a prompt engineer for Stable Diffusion XL.  
+            
             Your task is to enhance and elaborate the following prompt for optimal image generation:
 
             Original Prompt: {{user_prompt}}
 
-            IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time. 
+            Your task: Enhance and elaborate the original prompt for optimal image generation.
+            IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time.
             IMPORTANT: Try to understand the essence of the prompt and expand upon it creatively. For example, if the base prompt is "an instagram selfie", do not return a painting style or a cartoon version. Instead, enhance the prompt with a unique setting, mood, or additional elements that would make it stand out.
             Create a completely different interpretation with:
             - Different artistic style than you would typically suggest, only if no style if given in the base prompt
             - Unique lighting conditions
             - Alternative composition approach
             - Varied details and elements
-            - Included technical details like the type of camera or lens used
-            
+            - Understand if the user desires a particular style (Photorealistic, Cinematic, Anime, Painterly, Concept Art, Cyberpunk, etc.)
+            - (Optional) Included technical details like the type of camera or lens used
+
             This is variation #{{seed}} in a batch generation process.
             
             Aim for around 50-100 words. Make it very descriptive.

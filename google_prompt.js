@@ -89,24 +89,38 @@ app.registerExtension({
                         "WAN 2.2": "lowres, bad anatomy, extra arms, extra legs, fused limbs, poorly drawn hands, incorrect eyes, distorted face, messy background, watermark, text, blurry, pixelated"
                     };
 
+                    // Store the original callback to be called later
                     const originalCallback = modelTypeWidget.callback;
+
+                    // Define the new callback function
                     modelTypeWidget.callback = (v) => {
-                        // If the negative prompt is empty or matches one of our presets, update it.
+                        // Check if the current negative prompt is one of the preset values.
                         const currentNegative = negativeTextWidget.value.trim();
                         const isAPreset = Object.values(modelNegativePresets).includes(currentNegative);
 
+                        // Only update the negative prompt if it's empty or if it's one of our presets.
+                        // This prevents overwriting a user's custom negative prompt.
                         if (!currentNegative || isAPreset) {
                             negativeTextWidget.value = modelNegativePresets[v] || "";
+                            
                             // Manually trigger the input event for the text area to update its size
-                            negativeTextWidget.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            if (negativeTextWidget.inputEl) {
+                                negativeTextWidget.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
                         }
                         
+                        // Call the original callback if it exists
                         if (originalCallback) {
                             return originalCallback.apply(this, arguments);
                         }
                     };
-                    // Trigger callback on creation to set initial value
-                    modelTypeWidget.callback(modelTypeWidget.value);
+
+                    // Trigger the callback once on node creation to set the initial value based on the default model type.
+                    setTimeout(() => {
+                        if (modelTypeWidget.value) {
+                            modelTypeWidget.callback(modelTypeWidget.value);
+                        }
+                    }, 0);
                 }
 
                 // Find and customize the seed override widget

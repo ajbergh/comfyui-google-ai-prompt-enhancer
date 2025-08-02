@@ -70,8 +70,7 @@ class GoogleAIPromptEnhancer:
             "required": {
                 "text": ("STRING", {"multiline": True, "default": "A beautiful landscape"}),  # User's input prompt
                 "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key
-                "model": (["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-preview-image-generation", 
-                           "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.0-flash-exp-image-generation"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
+                "model": (["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.0-flash-exp-image-generation"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
                 "model_type": (["SD1.5", "SDXL", "Flux", "Flux Kontext", "WAN 2.2"], {"default": "SDXL"}),  # Model dropdown
                 "clip": ("CLIP",),  # CLIP model for text encoding
                 "negative_text": ("STRING", {"multiline": True, "default": sdxl_negative_prompt, "description": "Pre-populated based on model type"}),  # Negative prompt text

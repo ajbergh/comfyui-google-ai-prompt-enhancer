@@ -267,15 +267,19 @@ class GoogleAIPromptEnhancer:
 
         # Prepare metadata for embedding
         if prompt is not None and extra_pnginfo is not None:
-            # Find the KSampler node to inject our enhanced prompt into the workflow data
-            for node_data in prompt.values():
-                if node_data.get("class_type") in ["KSampler", "KSamplerAdvanced", "UltimateSDUpscale"]:
-                    if "positive" in node_data["inputs"]:
-                        # This is a heuristic, but it should cover the most common samplers
-                        node_data["inputs"]["positive"] = enhanced_prompt
+            # Create a deep copy of the prompt workflow to avoid modifying the live graph
+            prompt_copy = json.loads(json.dumps(prompt))
+
+            # Find this specific node in the workflow copy
+            for node_id, node_data in prompt_copy.items():
+                if node_data.get("class_type") == "GoogleAIPromptEnhancer":
+                    # Update the 'text' input of our node in the metadata to store the final enhanced prompt
+                    if "inputs" in node_data and "text" in node_data["inputs"]:
+                        node_data["inputs"]["text"] = enhanced_prompt
+                    break # Stop after finding our node
             
-            # Add the modified workflow to the pnginfo
-            extra_pnginfo["workflow"] = json.dumps(prompt, indent=2)
+            # Add the modified workflow copy to the pnginfo
+            extra_pnginfo["workflow"] = json.dumps(prompt_copy, indent=2)
 
         # Convert the prompt text to CLIP conditioning format
         tokens = clip.tokenize(enhanced_prompt)  # Convert text to tokens

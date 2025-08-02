@@ -33,6 +33,10 @@ except ImportError:
 import comfy.sd  # ComfyUI's stable diffusion utilities
 import torch  # PyTorch for tensor operations
 import time  # Time module for sleep function
+import random
+import datetime
+import uuid
+import os
 
 class GoogleAIPromptEnhancer:
     """
@@ -68,6 +72,7 @@ class GoogleAIPromptEnhancer:
                 "model_type": (["SD1.5", "SDXL", "Flux", "Flux Kontext", "WAN 2.2"], {"default": "SDXL"}),  # Model dropdown
                 "clip": ("CLIP",),  # CLIP model for text encoding
                 "negative_text": ("STRING", {"multiline": True, "default": "", "description": "Pre-populated based on model type"}),  # Negative prompt text
+                "creativity": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05}), # Creativity (temperature)
                 "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Seed override
             },
             "optional": {
@@ -80,7 +85,7 @@ class GoogleAIPromptEnhancer:
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, model, model_type, clip, negative_text="", seed_override=0, keep_concise=False):
+    def enhance_prompt(self, text, api_key, model, model_type, clip, creativity, negative_text="", seed_override=0, keep_concise=False):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
         Also process negative prompt separately (without enhancement).
@@ -91,6 +96,7 @@ class GoogleAIPromptEnhancer:
             model (str): The Google Gemini model to use
             model_type (str): The type of Stable Diffusion model (e.g., SD1.5, SDXL)
             clip: CLIP model for encoding text
+            creativity (float): The temperature for the Gemini model
             negative_text (str): Negative prompt text (not enhanced through AI)
             seed_override (int): Optional seed override for uniqueness
             keep_concise (bool): Whether to keep the enhanced prompt concise
@@ -98,6 +104,15 @@ class GoogleAIPromptEnhancer:
         Returns:
             tuple: Tuple containing positive and negative CLIP conditioning, seed, and enhanced prompt text
         """
+        # Model-specific default negative prompts
+        model_negative_presets = {
+            "SD1.5": "blurry, lowres, bad anatomy, extra limbs, poorly drawn hands, fused fingers, mutated hands, deformed face, long neck, watermark, text, logo, grainy, jpeg artifacts",
+            "SDXL": "low detail, distorted anatomy, unrealistic proportions, washed out colors, overexposed, watermark, text, bad hands, extra limbs, blurry background, chromatic aberration",
+            "Flux": "chaotic composition, oversaturated colors, unnatural lighting, distorted proportions, messy textures, artifacts, watermark, text, cluttered scene, inconsistent perspective",
+            "Flux Kontext": "chaotic composition, unnatural proportions, distorted lighting, artifacts, text, watermark, visual clutter, inconsistent perspective",
+            "WAN 2.2": "lowres, bad anatomy, extra arms, extra legs, fused limbs, poorly drawn hands, incorrect eyes, distorted face, messy background, watermark, text, blurry, pixelated"
+        }
+
         # Dynamically set negative_text based on model_type if not provided
         if not negative_text:
             model_negative_prompt = model_negative_presets.get(model_type, "")
@@ -108,10 +123,6 @@ class GoogleAIPromptEnhancer:
             raise ValueError("Google Gemini API key is missing or invalid. Please provide your API key.")
 
         # Generate a truly unique seed for this specific run
-        import random
-        import datetime
-        import uuid
-        import os
 
         # Combine multiple sources of randomness
         if seed_override > 0:
@@ -160,6 +171,7 @@ class GoogleAIPromptEnhancer:
                 "Flux": """You are a prompt engineer for the Flux model. 
                 - Write prompts with narrative flow, multi-subject clarity, and contextual relationships.
                 - Organize descriptions logically: environment → subject → details → mood.
+                - Focus on scene composition, contextual relationships, and narrative flow.
                 - Optionally use explicit 'Style:' and 'Mood:' sections to clarify tone.""",
 
                 "Flux Kontext": """You are a prompt engineer for Flux Kontext. 
@@ -173,17 +185,8 @@ class GoogleAIPromptEnhancer:
                 - Optional light weighting `(keyword:1.2)` is acceptable.
                 - Include style tokens when appropriate."""
             }
-            # Model-specific default negative prompts
-            model_negative_presets = {
-                "SD1.5": "blurry, lowres, bad anatomy, extra limbs, poorly drawn hands, fused fingers, mutated hands, deformed face, long neck, watermark, text, logo, grainy, jpeg artifacts",
-                "SDXL": "low detail, distorted anatomy, unrealistic proportions, washed out colors, overexposed, watermark, text, bad hands, extra limbs, blurry background, chromatic aberration",
-                "Flux": "chaotic composition, oversaturated colors, unnatural lighting, distorted proportions, messy textures, artifacts, watermark, text, cluttered scene, inconsistent perspective",
-                "Flux Kontext": "chaotic composition, unnatural proportions, distorted lighting, artifacts, text, watermark, visual clutter, inconsistent perspective",
-                "WAN 2.2": "lowres, bad anatomy, extra arms, extra legs, fused limbs, poorly drawn hands, incorrect eyes, distorted face, messy background, watermark, text, blurry, pixelated"
-            }
 
             model_type_prompt = model_type_instructions.get(model_type, "")
-            model_negative_prompt = model_negative_presets.get(model_type, "")
             
             # Create a prompt template instructing Gemini how to enhance the text
             conciseness_instruction = "Keep the prompt concise and under 50 words." if keep_concise else "Aim for around 50-100 words. Make it very descriptive."

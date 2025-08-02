@@ -35,6 +35,8 @@ app.registerExtension({
                     // Set placeholder and ensure it's a password field initially
                     apiWidget.inputEl.placeholder = "Enter your Google Gemini API Key Here";
                     apiWidget.inputEl.type = "password";
+                    // Ensure the widget's type property is also set for consistency
+                    apiWidget.type = "password";
 
                     // Create a toggle button for showing/hiding the password
                     const toggleBtn = document.createElement("button");
@@ -43,12 +45,13 @@ app.registerExtension({
                     toggleBtn.style.padding = "2px 5px";
                     toggleBtn.style.cursor = "pointer";
                     toggleBtn.title = "Show/Hide API Key";
-                    toggleBtn.onclick = function(e) {
+                    toggleBtn.onclick = (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        const currentType = apiWidget.inputEl.type;
-                        apiWidget.inputEl.type = currentType === "password" ? "text" : "password";
-                        toggleBtn.textContent = currentType === "password" ? "🔒" : "👁️";
+                        const isPassword = apiWidget.inputEl.type === "password";
+                        apiWidget.inputEl.type = isPassword ? "text" : "password";
+                        apiWidget.type = apiWidget.inputEl.type;
+                        toggleBtn.textContent = isPassword ? "🔒" : "👁️";
                     };
 
                     // Insert the toggle button after the input element

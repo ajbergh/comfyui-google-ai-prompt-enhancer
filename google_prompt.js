@@ -31,32 +31,44 @@ app.registerExtension({
 
                 // Find and customize the API key input widget
                 const apiWidget = this.widgets.find((w) => w.name === "api_key");
-                apiWidget.inputEl.placeholder = "Enter your Google Gemini API Key Here";
-                
-                // Explicitly set the input type to password to ensure it's obscured
-                apiWidget.inputEl.type = "password";
-
-                // Create a toggle button for showing/hiding the password
-                const toggleBtn = document.createElement("button");
-                toggleBtn.textContent = "👁️";
-                toggleBtn.style.marginLeft = "5px";
-                toggleBtn.style.padding = "2px 5px";
-                toggleBtn.style.cursor = "pointer";
-                toggleBtn.title = "Show/Hide API Key";
-                toggleBtn.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (apiWidget.inputEl.type === "password") {
-                        apiWidget.inputEl.type = "text";
-                        toggleBtn.textContent = "🔒";
-                    } else {
-                        apiWidget.inputEl.type = "password";
-                        toggleBtn.textContent = "👁️";
+                if (apiWidget) {
+                    // Helper to replace input type safely
+                    function setInputType(widget, type) {
+                        const oldInput = widget.inputEl;
+                        const newInput = document.createElement("input");
+                        newInput.type = type;
+                        newInput.value = oldInput.value;
+                        newInput.placeholder = "Enter your Google Gemini API Key Here";
+                        newInput.className = oldInput.className;
+                        newInput.style = oldInput.style.cssText;
+                        // Transfer listeners if needed
+                        newInput.oninput = oldInput.oninput;
+                        newInput.onchange = oldInput.onchange;
+                        // Replace in DOM
+                        oldInput.parentNode.replaceChild(newInput, oldInput);
+                        widget.inputEl = newInput;
                     }
-                };
 
-                // Insert the toggle button after the input element
-                apiWidget.inputEl.parentNode.insertBefore(toggleBtn, apiWidget.inputEl.nextSibling);
+                    setInputType(apiWidget, "password");
+
+                    // Create a toggle button for showing/hiding the password
+                    const toggleBtn = document.createElement("button");
+                    toggleBtn.textContent = "👁️";
+                    toggleBtn.style.marginLeft = "5px";
+                    toggleBtn.style.padding = "2px 5px";
+                    toggleBtn.style.cursor = "pointer";
+                    toggleBtn.title = "Show/Hide API Key";
+                    toggleBtn.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const currentType = apiWidget.inputEl.type;
+                        setInputType(apiWidget, currentType === "password" ? "text" : "password");
+                        toggleBtn.textContent = currentType === "password" ? "🔒" : "👁️";
+                    };
+
+                    // Insert the toggle button after the input element
+                    apiWidget.inputEl.parentNode.insertBefore(toggleBtn, apiWidget.inputEl.nextSibling);
+                }
 
                 // Find and customize the model dropdown widget
                 const modelWidget = this.widgets.find((w) => w.name === "model");
@@ -68,6 +80,16 @@ app.registerExtension({
                     modelWidget.inputEl.style.width = "100%";
                     modelWidget.inputEl.style.padding = "4px";
                     modelWidget.inputEl.style.borderRadius = "4px";
+                }
+
+                // Find and customize the model_type dropdown widget
+                const modelTypeWidget = this.widgets.find((w) => w.name === "model_type");
+                if (modelTypeWidget) {
+                    modelTypeWidget.inputEl.title =
+                        "Select the type of Stable Diffusion model. This influences how the prompt is enhanced for optimal results.";
+                    modelTypeWidget.inputEl.style.width = "100%";
+                    modelTypeWidget.inputEl.style.padding = "4px";
+                    modelTypeWidget.inputEl.style.borderRadius = "4px";
                 }
 
                 // Find and customize the seed override widget

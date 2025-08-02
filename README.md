@@ -10,6 +10,7 @@ A ComfyUI extension that uses Google's Gemini AI to enhance and elaborate text p
 - Secure API key handling with masked display
 - Error handling with graceful fallbacks
 - Metadata embedding for enhanced prompts
+- Model Type dropdown: Select SD1.5, SDXL, Flux, Flux Kontext, or WAN 2.2 to optimize prompt enhancement for your target model.
 
 ## Installation
 

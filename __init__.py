@@ -37,9 +37,13 @@ import time  # Time module for sleep function
 class GoogleAIPromptEnhancer:
     """
     A ComfyUI node that enhances prompts using Google's Gemini AI.
-    
+
     This node sends the user's text prompt to Gemini API, which returns an enhanced
     version with more descriptive details suitable for image generation.
+
+    New Feature:
+    - 'Model Type' dropdown lets you select the target Stable Diffusion model (SD1.5, SDXL, Flux, Flux Kontext, WAN 2.2).
+    - The selected model type influences the system prompt sent to Gemini, optimizing the enhanced prompt for your chosen model.
     """
     
     def __init__(self):
@@ -61,6 +65,7 @@ class GoogleAIPromptEnhancer:
                 "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key with password flag
                 "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.5-pro-exp-03-25","gemini-2.0-flash-thinking-exp-01-21", 
                            "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.0-flash-exp-image-generation"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
+                "model_type": (["SD1.5", "SDXL", "Flux", "Flux Kontext", "WAN 2.2"], {"default": "SDXL"}),  # <-- Added dropdown
                 "clip": ("CLIP",),  # CLIP model for text encoding
                 "negative_text": ("STRING", {"multiline": True, "default": ""}),  # Negative prompt text
                 "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Add a seed override input
@@ -72,7 +77,7 @@ class GoogleAIPromptEnhancer:
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, model, clip, negative_text="", seed_override=0):
+    def enhance_prompt(self, text, api_key, model, model_type, clip, negative_text="", seed_override=0):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
         Also process negative prompt separately (without enhancement).
@@ -81,6 +86,7 @@ class GoogleAIPromptEnhancer:
             text (str): The original prompt text to enhance
             api_key (str): Google Gemini API key
             model (str): The Google Gemini model to use
+            model_type (str): The type of Stable Diffusion model (e.g., SD1.5, SDXL)
             clip: CLIP model for encoding text
             negative_text (str): Negative prompt text (not enhanced through AI)
             seed_override (int): Optional seed override for uniqueness
@@ -128,12 +134,24 @@ class GoogleAIPromptEnhancer:
             # Insert the variation seed directly into the prompt to ensure uniqueness
             unique_text = f"{text} [UNIQUENESS_MARKER_{timestamp}_{variation_seed}]"
             
+            # Add model_type-specific instructions
+            model_type_instructions = {
+                "SD1.5": "You are enhancing prompts for Stable Diffusion 1.5. Focus on concise, clear descriptions and avoid overly complex compositions.",
+                "SDXL": "You are enhancing prompts for Stable Diffusion XL. Use rich, detailed descriptions and modern artistic styles.",
+                "Flux": "You are enhancing prompts for the Flux model. Emphasize abstract, experimental, and generative art concepts.",
+                "Flux Kontext": "You are enhancing prompts for Flux Kontext. Focus on context-aware, narrative-driven, and conceptual prompts.",
+                "WAN 2.2": "You are enhancing prompts for WAN 2.2. Prioritize photorealism, technical camera details, and lifelike scenes."
+            }
+            model_type_prompt = model_type_instructions.get(model_type, "")
+
             # Create a prompt template instructing Gemini how to enhance the text
-            prompt_template = """
+            prompt_template = f"""
+            {model_type_prompt}
+
             You are a prompt engineer for Stable Diffusion XL.  
             Your task is to enhance and elaborate the following prompt for optimal image generation:
 
-            Original Prompt: {user_prompt}
+            Original Prompt: {{user_prompt}}
 
             IMPORTANT: Your response MUST be a NEW and UNIQUE variation each time. 
             IMPORTANT: Try to understand the essence of the prompt and expand upon it creatively. For example, if the base prompt is "an instagram selfie", do not return a painting style or a cartoon version. Instead, enhance the prompt with a unique setting, mood, or additional elements that would make it stand out.
@@ -144,7 +162,7 @@ class GoogleAIPromptEnhancer:
             - Varied details and elements
             - Included technical details like the type of camera or lens used
             
-            This is variation #{seed} in a batch generation process.
+            This is variation #{{seed}} in a batch generation process.
             
             Aim for around 50-100 words. Make it very descriptive.
             Only output the enhanced prompt text, no explanations or commentary.

@@ -62,13 +62,16 @@ class GoogleAIPromptEnhancer:
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "default": "A beautiful landscape"}),  # User's input prompt
-                "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key with password flag
-                "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.5-pro-exp-03-25","gemini-2.0-flash-thinking-exp-01-21", 
+                "api_key": ("STRING", {"multiline": False, "default": "YOUR_API_KEY_HERE", "password": True}),  # Google Gemini API key
+                "model": (["gemini-2.0-pro-exp-02-05", "gemini-2.5-pro-exp-03-25", "gemini-2.0-flash-thinking-exp-01-21", 
                            "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.0-flash-exp-image-generation"], {"default": "gemini-2.0-pro-exp-02-05"}),  # Model selection
-                "model_type": (["SD1.5", "SDXL", "Flux", "Flux Kontext", "WAN 2.2"], {"default": "SDXL"}),  # <-- Added dropdown
+                "model_type": (["SD1.5", "SDXL", "Flux", "Flux Kontext", "WAN 2.2"], {"default": "SDXL"}),  # Model dropdown
                 "clip": ("CLIP",),  # CLIP model for text encoding
-                "negative_text": ("STRING", {"multiline": True, "default": ""}),  # Negative prompt text
-                "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Add a seed override input
+                "negative_text": ("STRING", {"multiline": True, "default": "", "description": "Pre-populated based on model type"}),  # Negative prompt text
+                "seed_override": ("INT", {"default": 0, "min": 0, "max": 1000000000}),  # Seed override
+            },
+            "optional": {
+                "keep_concise": ("BOOLEAN", {"default": False}), # Add conciseness checkbox
             }
         }
 
@@ -77,7 +80,7 @@ class GoogleAIPromptEnhancer:
     FUNCTION = "enhance_prompt"  # Main function to execute
     CATEGORY = "conditioning"  # Node category in ComfyUI interface
 
-    def enhance_prompt(self, text, api_key, model, model_type, clip, negative_text="", seed_override=0):
+    def enhance_prompt(self, text, api_key, model, model_type, clip, negative_text="", seed_override=0, keep_concise=False):
         """
         Process the input prompt through Google Gemini and convert to CLIP conditioning.
         Also process negative prompt separately (without enhancement).
@@ -90,10 +93,16 @@ class GoogleAIPromptEnhancer:
             clip: CLIP model for encoding text
             negative_text (str): Negative prompt text (not enhanced through AI)
             seed_override (int): Optional seed override for uniqueness
+            keep_concise (bool): Whether to keep the enhanced prompt concise
             
         Returns:
             tuple: Tuple containing positive and negative CLIP conditioning, seed, and enhanced prompt text
         """
+        # Dynamically set negative_text based on model_type if not provided
+        if not negative_text:
+            model_negative_prompt = model_negative_presets.get(model_type, "")
+            negative_text = model_negative_prompt
+
         # Validate API key is provided
         if not api_key or api_key == "YOUR_API_KEY_HERE":
             raise ValueError("Google Gemini API key is missing or invalid. Please provide your API key.")
@@ -177,6 +186,8 @@ class GoogleAIPromptEnhancer:
             model_negative_prompt = model_negative_presets.get(model_type, "")
             
             # Create a prompt template instructing Gemini how to enhance the text
+            conciseness_instruction = "Keep the prompt concise and under 50 words." if keep_concise else "Aim for around 50-100 words. Make it very descriptive."
+            
             prompt_template = f"""
             {model_type_prompt}
 
@@ -198,7 +209,7 @@ class GoogleAIPromptEnhancer:
 
             This is variation #{{seed}} in a batch generation process.
             
-            Aim for around 50-100 words. Make it very descriptive.
+            {conciseness_instruction}
             Only output the enhanced prompt text, no explanations or commentary.
             Ignore any UNIQUENESS_MARKER tags in the prompt.
             """
@@ -210,7 +221,7 @@ class GoogleAIPromptEnhancer:
             
             # Create generation config with temperature to increase variation
             generation_config = {
-                "temperature": 0.9,  # Increase randomness
+                "temperature": creativity,  # Use creativity value from input
                 "top_p": 0.95,       # Sample from more diverse options
             }
             

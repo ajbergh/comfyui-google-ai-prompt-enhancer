@@ -32,24 +32,9 @@ app.registerExtension({
                 // Find and customize the API key input widget
                 const apiWidget = this.widgets.find((w) => w.name === "api_key");
                 if (apiWidget) {
-                    // Helper to replace input type safely
-                    function setInputType(widget, type) {
-                        const oldInput = widget.inputEl;
-                        const newInput = document.createElement("input");
-                        newInput.type = type;
-                        newInput.value = oldInput.value;
-                        newInput.placeholder = "Enter your Google Gemini API Key Here";
-                        newInput.className = oldInput.className;
-                        newInput.style = oldInput.style.cssText;
-                        // Transfer listeners if needed
-                        newInput.oninput = oldInput.oninput;
-                        newInput.onchange = oldInput.onchange;
-                        // Replace in DOM
-                        oldInput.parentNode.replaceChild(newInput, oldInput);
-                        widget.inputEl = newInput;
-                    }
-
-                    setInputType(apiWidget, "password");
+                    // Set placeholder and ensure it's a password field initially
+                    apiWidget.inputEl.placeholder = "Enter your Google Gemini API Key Here";
+                    apiWidget.inputEl.type = "password";
 
                     // Create a toggle button for showing/hiding the password
                     const toggleBtn = document.createElement("button");
@@ -62,7 +47,7 @@ app.registerExtension({
                         e.preventDefault();
                         e.stopPropagation();
                         const currentType = apiWidget.inputEl.type;
-                        setInputType(apiWidget, currentType === "password" ? "text" : "password");
+                        apiWidget.inputEl.type = currentType === "password" ? "text" : "password";
                         toggleBtn.textContent = currentType === "password" ? "🔒" : "👁️";
                     };
 
@@ -84,12 +69,38 @@ app.registerExtension({
 
                 // Find and customize the model_type dropdown widget
                 const modelTypeWidget = this.widgets.find((w) => w.name === "model_type");
-                if (modelTypeWidget) {
+                const negativeTextWidget = this.widgets.find((w) => w.name === "negative_text");
+
+                if (modelTypeWidget && negativeTextWidget) {
                     modelTypeWidget.inputEl.title =
                         "Select the type of Stable Diffusion model. This influences how the prompt is enhanced for optimal results.";
                     modelTypeWidget.inputEl.style.width = "100%";
                     modelTypeWidget.inputEl.style.padding = "4px";
                     modelTypeWidget.inputEl.style.borderRadius = "4px";
+
+                    const modelNegativePresets = {
+                        "SD1.5": "blurry, lowres, bad anatomy, extra limbs, poorly drawn hands, fused fingers, mutated hands, deformed face, long neck, watermark, text, logo, grainy, jpeg artifacts",
+                        "SDXL": "low detail, distorted anatomy, unrealistic proportions, washed out colors, overexposed, watermark, text, bad hands, extra limbs, blurry background, chromatic aberration",
+                        "Flux": "chaotic composition, oversaturated colors, unnatural lighting, distorted proportions, messy textures, artifacts, watermark, text, cluttered scene, inconsistent perspective",
+                        "Flux Kontext": "chaotic composition, unnatural proportions, distorted lighting, artifacts, text, watermark, visual clutter, inconsistent perspective",
+                        "WAN 2.2": "lowres, bad anatomy, extra arms, extra legs, fused limbs, poorly drawn hands, incorrect eyes, distorted face, messy background, watermark, text, blurry, pixelated"
+                    };
+
+                    const originalCallback = modelTypeWidget.callback;
+                    modelTypeWidget.callback = (v) => {
+                        // If the negative prompt is empty or matches one of our presets, update it.
+                        const currentNegative = negativeTextWidget.value.trim();
+                        const isCurrentNegativeAPreset = Object.values(modelNegativePresets).includes(currentNegative);
+
+                        if (!currentNegative || isCurrentNegativeAPreset) {
+                            negativeTextWidget.value = modelNegativePresets[v] || "";
+                        }
+                        if (originalCallback) {
+                            return originalCallback.apply(this, arguments);
+                        }
+                    };
+                    // Trigger callback on creation to set initial value
+                    modelTypeWidget.callback(modelTypeWidget.value);
                 }
 
                 // Find and customize the seed override widget
@@ -107,7 +118,6 @@ app.registerExtension({
                 textBoxWidget.inputEl.placeholder = "Enter your prompt here";
 
                 // Find and customize the negative prompt text input widget
-                const negativeTextWidget = this.widgets.find((w) => w.name === "negative_text");
                 negativeTextWidget.inputEl.placeholder = "Enter negative prompt here (not enhanced by AI)";
                 
                 // Apply some styling to differentiate it from the positive prompt
